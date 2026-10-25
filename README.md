@@ -5,9 +5,9 @@
 
 # Fofuxo Modeling Tools
 
-Blender add-on with tools that speed up modeling, starting with an Angle
-checkbox in the Mirror modifier that mirrors across a plane tilted 45° instead
-of only the X/Y/Z planes.
+Blender add-on with tools that speed up modeling and export: an Angle checkbox
+in the Mirror modifier that mirrors across a plane tilted 45°, and a Merge
+Collection modifier that joins a whole collection into a single mesh.
 
 In development.
 

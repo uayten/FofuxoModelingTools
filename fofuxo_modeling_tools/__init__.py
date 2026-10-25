@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from . import mirror_angle
+from . import merge_collection, mirror_angle
 
-modules = (mirror_angle,)
+modules = (mirror_angle, merge_collection)
 
 
 def register():

@@ -2,9 +2,12 @@
 
 # Fofuxo Modeling Tools
 
-Add-on para o Blender com ferramentas que agilizam a modelagem. A primeira é um
-checkbox **Angle** dentro do modificador Mirror, que faz ele espelhar num plano
-inclinado a 45°, e não só nos planos X/Y/Z a 90° um do outro.
+Add-on para o Blender com ferramentas que agilizam a modelagem e a exportação:
+
+- um checkbox **Angle** dentro do modificador Mirror, que faz ele espelhar num
+  plano inclinado a 45°, e não só nos planos X/Y/Z a 90° um do outro;
+- o modificador **Merge Collection**, que junta todos os objetos de uma
+  collection numa malha só, pronta para exportar.
 
 - [Instalação](#instalação)
 - [Uso](#uso)
@@ -31,6 +34,17 @@ O checkbox **Angle** fica no fim do painel do modificador Mirror. Ao marcar,
 ele cria um empty oculto, filho do objeto, e o põe como *Mirror Object*: é esse
 empty que define o plano do espelho. A rotação dele aparece dentro do
 subpainel e pode ser mudada para outro ângulo. Desmarcar apaga o empty.
+
+O **Merge Collection** fica em *Add Modifier > Generate*. É um modificador
+Geometry Nodes: escolha a collection no painel e a malha do objeto passa a
+conter cópias de todos os objetos dela (inclusive sub-collections, curvas e
+textos), já com os modificadores e materiais deles, na mesma posição em que
+estão na cena. Para exportar, use uma malha vazia como suporte e esconda ou
+exclua a collection de origem.
+
+- O suporte precisa ser um objeto mesh: empties não aceitam modificadores.
+- O suporte não pode estar dentro da collection que ele junta. Isso cria um
+  ciclo de dependência e o resultado fica vazio.
 
 ## Licença
 
