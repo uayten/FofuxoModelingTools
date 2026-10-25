@@ -63,21 +63,25 @@ arestas num plano XY do objeto. Cada vértice do esqueleto vira um anel de uma
 malha low-poly em relevo, só de quads e aberta (sem tampas nem face de trás).
 *Direction* escolhe o lado do plano de onde o relevo sai; *Crest* fecha as
 laterais (1 forma uma crista; acima de 1, uma crista mais alta). Largura e
-espessura são em unidades do mundo, mesmo com o objeto escalado.
+espessura são em unidades do mundo, mesmo com o objeto escalado. Com a
+interface do Blender em português, as opções aparecem traduzidas.
 
-Os inputs *Main Stem* e *Width Group* leem vertex groups: no modificador,
-clique no ícone de atributo ao lado do input e escreva o nome do grupo.
+Os campos de grupo recebem o nome de um vertex group, digitado:
 
-- *Main Stem*: os vértices do caule principal. As arestas entre eles formam uma
-  faixa contínua, que atravessa as junções sem cortes; as outras arestas viram
-  galhos, soldados ao anel do caule no vértice de onde saem. Sem grupo, a malha
-  é cortada em cada junção.
-- *Width Group*: pesos de 0 a 1. Peso 0 usa *Width*, peso 1 usa *Group Width*
-  e os valores intermediários misturam os dois.
+- *Stem Group* (painel *Main Stem*): os vértices do segmento principal. As
+  arestas entre eles formam uma faixa contínua, que atravessa as junções sem
+  cortes; as outras arestas viram extensões conectadas a ela. Sem grupo, toda
+  aresta é segmento principal.
+- *Width Group* (painel *Connected Branches*): sobrescreve a largura padrão.
+  Um vértice com peso acima de 0 fica com peso × *Max Group Width*; a largura
+  se ajusta pintando os pesos. Abaixo da largura padrão, a altura diminui
+  junto, então um peso mínimo (0,001) faz da ponta um ponto. Peso 0 conta como
+  fora do grupo, porque o Geometry Nodes não diferencia os dois.
 
-As arestas vivas ao longo dos galhos, como a crista, recebem crease. Para
-arredondar, ponha um Subdivision Surface depois do modificador. O painel
-*Width Variation*, desligado por padrão, afina o caule até as pontas soltas.
+Em cada junção, as extensões são soldadas ao anel do segmento principal (ou,
+sem ele, ao de uma das extensões), então a malha sai inteira. *Connect to
+Stem* desliga essa solda. Para arredondar, ponha um Subdivision Surface depois
+do modificador.
 
 Os modificadores Geometry Nodes ficam salvos no `.blend`, então quem abre
 o arquivo sem o add-on vê o mesmo resultado.

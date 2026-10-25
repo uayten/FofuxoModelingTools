@@ -4,14 +4,14 @@
 
 Each run of edges becomes a poly spline swept with an open ridged profile: one
 profile ring per skeleton vertex, all quads, no caps and no back face, a cage
-meant for a Subdivision Surface placed after the modifier. Sharp lengthwise
-edges, such as the crest, get a crease.
+meant for a Subdivision Surface placed after the modifier.
 
 Edges with both ends in the Stem Group vertex group form the main stem, which
 runs unbroken through junctions; the other edges are connected branches. At
 every junction the branches' rings are welded onto one anchor ring (the main
-stem's, when it passes there), so the mesh stays in one piece. The Width Group
-vertex group blends each vertex from Width to Group Width.
+stem's, when it passes there), so the mesh stays in one piece. In the Width
+Group vertex group, a weight above 0 overrides Width with weight x Max Group
+Width.
 
 Width and thickness are in world units: they are divided by the object's scale
 and the mesh is built in local space.
@@ -30,11 +30,10 @@ GROUP_NAME = "Arabesque"
 # value is the version of the node setup: a group from an older version is
 # rebuilt in place, so modifiers already in the file pick up the changes.
 GROUP_KEY = "fofuxo_arabesque"
-GROUP_VERSION = 7
+GROUP_VERSION = 9
 # Inputs renamed between versions, so their values survive the rebuild.
-RENAMED_INPUTS = {"Main Stem": "Stem Group"}
+RENAMED_INPUTS = {"Main Stem": "Stem Group", "Group Width": "Max Group Width"}
 # Attributes that only live inside the node group.
-FREE_ATTRIBUTE = "fofuxo_free_end"
 JUNCTION_ATTRIBUTE = "fofuxo_junction"
 MAIN_ATTRIBUTE = "fofuxo_main"
 WIDTH_ATTRIBUTE = "fofuxo_width"
@@ -44,24 +43,18 @@ CENTER_ATTRIBUTE = "fofuxo_center"
 TANGENT_ATTRIBUTE = "fofuxo_tangent"
 TAPER_ATTRIBUTE = "fofuxo_taper"
 PROFILE_ATTRIBUTE = "fofuxo_profile_point"
-# Edge attribute read by the Subdivision Surface modifier.
-CREASE_ATTRIBUTE = "crease_edge"
 
 # Names Blender does not translate by itself ("Width", "Thickness",
-# "Direction" and "Crease" it does).
+# "Direction" it does).
 TRANSLATIONS = {
     "pt_BR": {("*", english): portuguese for english, portuguese in (
         ("Main Stem", "Segmento Principal"),
         ("Connected Branches", "Extensões Conectadas"),
         ("Stem Group", "Grupo do Segmento"),
         ("Width Group", "Grupo de Largura"),
-        ("Group Width", "Largura do Grupo"),
+        ("Max Group Width", "Largura Máxima do Grupo"),
         ("Crest", "Crista"),
-        ("Sharp Angle", "Ângulo do Vinco"),
         ("Connect to Stem", "Conectar ao Segmento"),
-        ("Taper Ends", "Afinar Pontas"),
-        ("Tip Width", "Largura da Ponta"),
-        ("Taper Power", "Força do Afinamento"),
     )},
 }
 
@@ -263,19 +256,14 @@ def build_interface(interface):
         ("Crest", 'NodeSocketFloat', 1.0, 0.0, 10.0, 'NONE',
          "How far the sides close in: 0 is a rectangle, 0.5 a top half as wide as the base, "
          "1 sides meeting in a crest, above 1 a taller crest"),
-        ("Width Group", 'NodeSocketString', "", None, None, None,
-         "Vertex group whose weights blend each vertex from Width (0) to Group Width (1)"),
-        ("Group Width", 'NodeSocketFloat', 0.014, 0.0, 10.0, 'DISTANCE', "Width of the base where the Width Group weight is 1, in world units"),
-        ("Crease", 'NodeSocketFloat', 1.0, 0.0, 1.0, 'FACTOR', "Crease given to sharp lengthwise edges, kept sharp by Subdivision Surface"),
-        ("Sharp Angle", 'NodeSocketFloat', math.radians(30.0), 0.0, math.pi, 'ANGLE', "Lengthwise edges whose faces meet at more than this angle get the crease"),
     ))
 
     branches = interface.new_panel("Connected Branches")
     add_inputs(interface, branches, (
         ("Connect to Stem", 'NodeSocketBool', True, None, None, None, "Weld the branches onto the stem where they meet"),
-        ("Taper Ends", 'NodeSocketBool', False, None, None, None, "Thin the branches towards their free ends"),
-        ("Tip Width", 'NodeSocketFloat', 0.35, 0.0, 1.0, 'FACTOR', "Width at the free end relative to the branch's width"),
-        ("Taper Power", 'NodeSocketFloat', 1.5, 0.1, 10.0, 'NONE', "Higher values keep the branch wide for longer before it thins"),
+        ("Width Group", 'NodeSocketString', "", None, None, None,
+         "Vertex group that overrides Width: a vertex with weight above 0 gets weight x Max Group Width"),
+        ("Max Group Width", 'NodeSocketFloat', 0.014, 0.0, 10.0, 'DISTANCE', "Width of the base where the Width Group weight is 1, in world units"),
     ))
 
     interface.new_socket("Geometry", in_out='OUTPUT', socket_type='NodeSocketGeometry')
@@ -300,23 +288,24 @@ def build_group(group):
     b.connect(direction, {"Menu": gi["Direction"], "Up": 1.0, "Down": -1.0})
     sign = direction.outputs[0]
 
-    # On the skeleton: free ends, junctions, the main stem and the width of
-    # each vertex, carried over to the splines as point attributes.
+    # On the skeleton: junctions, the main stem and the width of each
+    # vertex, carried over to the splines as point attributes.
     neighbors = b.node('GeometryNodeInputMeshVertexNeighbors', (-2000, -250)).outputs["Vertex Count"]
-    skeleton = b.store((-1600, 0), gi["Geometry"], FREE_ATTRIBUTE,
-                       b.compare('INT', 'EQUAL', (-1800, -250), neighbors, 1), 'BOOLEAN')
-    skeleton = b.store((-1560, 0), skeleton, JUNCTION_ATTRIBUTE,
+    skeleton = b.store((-1560, 0), gi["Geometry"], JUNCTION_ATTRIBUTE,
                        b.compare('INT', 'GREATER_EQUAL', (-1800, -400), neighbors, 3), 'BOOLEAN')
     stem_group = b.node('GeometryNodeInputNamedAttribute', (-1800, 300), data_type='BOOLEAN')
     b.connect(stem_group, {"Name": gi["Stem Group"]})
     # Without a stem group every vertex is stem.
     on_stem = b.switch('BOOLEAN', (-1600, 300), stem_group.outputs["Exists"], True, stem_group.outputs["Attribute"])
     skeleton = b.store((-1520, 0), skeleton, MAIN_ATTRIBUTE, on_stem, 'BOOLEAN')
-    width_weight = b.node('GeometryNodeInputNamedAttribute', (-1800, 500), data_type='FLOAT')
-    b.connect(width_weight, {"Name": gi["Width Group"]})
-    width_blend = b.node('ShaderNodeMix', (-1600, 500), data_type='FLOAT', clamp_factor=True)
-    b.connect(width_blend, {"Factor": width_weight.outputs["Attribute"], "A": gi["Width"], "B": gi["Group Width"]})
-    skeleton = b.store((-1480, 0), skeleton, WIDTH_ATTRIBUTE, width_blend.outputs["Result"], 'FLOAT')
+    # Width Group overrides Width with weight x Max Group Width. A vertex
+    # outside the group reads weight 0, the same as weight 0 inside it, so
+    # only weights above 0 override.
+    width_weight = b.attribute((-1800, 500), gi["Width Group"], 'FLOAT')
+    group_width = b.math('MULTIPLY', (-1700, 600), width_weight, gi["Max Group Width"])
+    in_group = b.compare('FLOAT', 'GREATER_THAN', (-1700, 450), width_weight, 0.0)
+    point_width = b.switch('FLOAT', (-1550, 500), in_group, gi["Width"], group_width)
+    skeleton = b.store((-1480, 0), skeleton, WIDTH_ATTRIBUTE, point_width, 'FLOAT')
 
     # Main stem edges (both ends on it) become their own splines, so the stem
     # runs unbroken through the junctions where branches leave it.
@@ -359,14 +348,10 @@ def build_group(group):
     normal = b.node('GeometryNodeSetCurveNormal', (-400, 0))
     b.connect(normal, {"Curve": all_curves.outputs["Geometry"], "Mode": 'Z Up'})
 
-    # The profile is built at Width: scale it to each point's own width, and
-    # taper the branches if asked.
+    # The profile is built at Width: scale it to each point's own width.
     point_width = b.attribute((600, -300), WIDTH_ATTRIBUTE, 'FLOAT')
     safe_width = b.math('MAXIMUM', (600, -500), gi["Width"], 0.000001)
-    width_factor = b.math('DIVIDE', (800, -300), point_width, safe_width)
-    is_stem = b.attribute((800, -500), STEM_ATTRIBUTE, 'BOOLEAN')
-    branch_taper = b.switch('FLOAT', (1000, -500), is_stem, build_taper(b, gi), 1.0)
-    taper = b.math('MULTIPLY', (1000, -300), branch_taper, width_factor)
+    taper = b.math('DIVIDE', (800, -300), point_width, safe_width)
     curves = b.store((1000, 0), normal.outputs["Curve"], TAPER_ATTRIBUTE, taper, 'FLOAT')
     curve_of_point = b.node('GeometryNodeCurveOfPoint', (1000, 200))
     curves = b.store((1100, 0), curves, SPLINE_ATTRIBUTE, curve_of_point.outputs["Curve Index"], 'INT')
@@ -381,8 +366,8 @@ def build_group(group):
     curve_to_mesh = b.node('GeometryNodeCurveToMesh', (1400, 0))
     b.connect(curve_to_mesh, {"Curve": curves, "Profile Curve": profile, "Scale": taper, "Fill Caps": False})
 
-    # Place the relief on the chosen side of the skeleton plane at the full
-    # Thickness: Scale changed the height together with the width.
+    # Place the relief on the chosen side of the skeleton plane. Scale changed
+    # the height together with the width.
     taper_attribute = b.attribute((1400, -400), TAPER_ATTRIBUTE, 'FLOAT')
     plane = b.node('GeometryNodeAttributeStatistic', (1400, -600), data_type='FLOAT', domain='POINT')
     position_in = b.node('GeometryNodeInputPosition', (1200, -700))
@@ -393,8 +378,10 @@ def build_group(group):
     separate = b.node('ShaderNodeSeparateXYZ', (1800, -500))
     b.connect(separate, {"Vector": position.outputs["Position"]})
     height = b.math('SUBTRACT', (1800, -700), separate.outputs["Z"], plane.outputs["Mean"])
-    safe_taper = b.math('MAXIMUM', (1800, -900), taper_attribute, 0.0001)
-    relief = b.math('DIVIDE', (2000, -900), 1.0, safe_taper, label="undo the height scaling")
+    # Wider than Width: keep the height at Thickness. Narrower: let the
+    # height shrink with the width, so a ring near zero width is a point.
+    safe_taper = b.math('MAXIMUM', (1800, -900), taper_attribute, 1.0)
+    relief = b.math('DIVIDE', (2000, -900), 1.0, safe_taper, label="undo the height scaling above Width")
     # Which side of the plane Curve to Mesh put the profile on varies with
     # each spline's direction: take the distance from the plane and send
     # every point to the side Direction asks for.
@@ -421,21 +408,6 @@ def build_group(group):
 
     welded = build_weld(b, flip.outputs["Mesh"], local_width)
     mesh = b.switch('GEOMETRY', (4600, 0), gi["Connect to Stem"], flip.outputs["Mesh"], welded)
-
-    # Crease on lengthwise edges (both vertices from the same profile point)
-    # where the faces meet sharply, such as the crest. Ring edges stay soft
-    # so Subdivision Surface still rounds the bends.
-    profile_point = b.attribute((4400, 900), PROFILE_ATTRIBUTE, 'INT')
-    edge_vertices = b.node('GeometryNodeInputMeshEdgeVertices', (4400, 700))
-    first = b.node('GeometryNodeFieldAtIndex', (4600, 900), domain='POINT', data_type='INT')
-    b.connect(first, {"Index": edge_vertices.outputs["Vertex Index 1"], "Value": profile_point})
-    second = b.node('GeometryNodeFieldAtIndex', (4600, 700), domain='POINT', data_type='INT')
-    b.connect(second, {"Index": edge_vertices.outputs["Vertex Index 2"], "Value": profile_point})
-    lengthwise = b.compare('INT', 'EQUAL', (4800, 800), first.outputs["Value"], second.outputs["Value"])
-    edge_angle = b.node('GeometryNodeInputMeshEdgeAngle', (4600, 500))
-    sharp = b.compare('FLOAT', 'GREATER_THAN', (4800, 600), edge_angle.outputs["Unsigned Angle"], gi["Sharp Angle"])
-    crease = b.switch('FLOAT', (5000, 700), b.boolean('AND', (4900, 700), lengthwise, sharp), 0.0, gi["Crease"])
-    mesh = b.store((4800, 200), mesh, CREASE_ATTRIBUTE, crease, 'FLOAT', domain='EDGE')
 
     remove_attributes = b.node('GeometryNodeRemoveAttribute', (5000, 200))
     b.connect(remove_attributes, {"Geometry": mesh, "Pattern Mode": 'Wildcard', "Name": "fofuxo_*"})
@@ -505,8 +477,10 @@ def build_weld(b, mesh, local_width):
     move = b.node('GeometryNodeSetPosition', (x + 1800, y - 600))
     b.connect(move, {"Geometry": mesh, "Selection": b.boolean('AND', (x + 1600, y - 400), junction, other_spline),
                      "Position": target.outputs[0]})
+    # Only junction rings merge: a ring collapsed to a point (Width Group
+    # weight near 0) keeps its vertices, so its faces stay quads.
     merge = b.node('GeometryNodeMergeByDistance', (x + 2000, y - 600))
-    b.connect(merge, {"Geometry": move.outputs["Geometry"], "Distance": 0.00001})
+    b.connect(merge, {"Geometry": move.outputs["Geometry"], "Selection": junction, "Distance": 0.00001})
     return merge.outputs["Geometry"]
 
 
@@ -514,7 +488,7 @@ def build_profile(b, width, thickness, crest):
     """Open five-point profile from one base corner over the crest to the
     other: base corners on the plane, two shoulders and the crest. Profile X
     lies in the skeleton plane and Y points away from it (curve normals are
-    Z Up). Each point stores its index, to find lengthwise edges later."""
+    Z Up). Each point stores its index, to match rings when welding."""
     half = b.math('MULTIPLY', (200, 900), width, 0.5)
     quarter = b.math('MULTIPLY', (200, 1100), width, 0.25)
     closing = b.math('MINIMUM', (200, 1300), crest, 1.0)
@@ -548,37 +522,6 @@ def build_profile(b, width, thickness, crest):
     points_to_curves = b.node('GeometryNodePointsToCurves', (1600, 1000))
     b.connect(points_to_curves, {"Points": numbered})
     return points_to_curves.outputs["Curves"]
-
-
-def build_taper(b, gi):
-    """Taper factor along a spline: 1 unless Taper Ends thins it towards its
-    free ends (both halves when both ends are free)."""
-    curve_index = b.node('GeometryNodeCurveOfPoint', (-1000, -900)).outputs["Curve Index"]
-    free_attribute = b.attribute((-1000, -700), FREE_ATTRIBUTE, 'BOOLEAN')
-    first_point = b.node('GeometryNodePointsOfCurve', (-800, -900))
-    b.connect(first_point, {"Curve Index": curve_index, "Sort Index": 0})
-    last_index = b.math('SUBTRACT', (-800, -1100), first_point.outputs["Total"], 1.0)
-    last_point = b.node('GeometryNodePointsOfCurve', (-600, -1100))
-    b.connect(last_point, {"Curve Index": curve_index, "Sort Index": last_index})
-    start_free = b.node('GeometryNodeFieldAtIndex', (-400, -800), domain='POINT', data_type='BOOLEAN')
-    b.connect(start_free, {"Index": first_point.outputs["Point Index"], "Value": free_attribute})
-    end_free = b.node('GeometryNodeFieldAtIndex', (-400, -1000), domain='POINT', data_type='BOOLEAN')
-    b.connect(end_free, {"Index": last_point.outputs["Point Index"], "Value": free_attribute})
-
-    # t goes from 0 at a junction to 1 at a free end.
-    factor = b.node('GeometryNodeSplineParameter', (-400, -1250)).outputs["Factor"]
-    to_end = b.math('MULTIPLY', (-200, -1000), factor, end_free.outputs["Value"], label="towards a free end")
-    to_start = b.math('MULTIPLY', (-200, -800), b.math('SUBTRACT', (-200, -1200), 1.0, factor),
-                      start_free.outputs["Value"], label="towards a free start")
-    one_sided = b.math('MAXIMUM', (0, -900), to_end, to_start)
-    both_free = b.boolean('AND', (0, -700), start_free.outputs["Value"], end_free.outputs["Value"])
-    centered = b.math('MAXIMUM', (200, -1100), b.math('MULTIPLY_ADD', (0, -1100), one_sided, 2.0, -1.0), 0.0)
-    t = b.switch('FLOAT', (400, -900), both_free, one_sided, centered)
-
-    t_power = b.math('POWER', (600, -900), t, gi["Taper Power"])
-    tip_loss = b.math('SUBTRACT', (600, -1100), 1.0, gi["Tip Width"])
-    tapered = b.math('MULTIPLY_ADD', (800, -900), t_power, b.math('MULTIPLY', (800, -1100), tip_loss, -1.0), 1.0, label="taper")
-    return b.switch('FLOAT', (1000, -900), gi["Taper Ends"], 1.0, tapered)
 
 
 class FOFUXO_OT_arabesque_add(bpy.types.Operator):
