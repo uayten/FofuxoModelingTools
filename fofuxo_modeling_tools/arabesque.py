@@ -23,6 +23,7 @@ translations for them.
 import math
 
 import bpy
+from bpy.app.handlers import persistent
 
 GROUP_NAME = "Arabesque"
 # Custom property that marks the node group as created by this tool. Its
@@ -150,12 +151,27 @@ def ensure_group():
     group = find_group()
     if group is None:
         group = bpy.data.node_groups.new(GROUP_NAME, 'GeometryNodeTree')
-    elif group[GROUP_KEY] == GROUP_VERSION:
-        return group
+        build_group(group)
+    else:
+        upgrade_group(group)
+    return group
+
+
+def upgrade_group(group):
+    """Rebuild a group from an older version in place, keeping what the
+    modifiers using it were set to."""
+    if group[GROUP_KEY] == GROUP_VERSION:
+        return
     settings = save_modifier_inputs(group)
     build_group(group)
     restore_modifier_inputs(group, settings)
-    return group
+
+
+@persistent
+def upgrade_on_load(_filepath=None):
+    group = find_group()
+    if group is not None:
+        upgrade_group(group)
 
 
 def modifier_inputs(group):
@@ -594,9 +610,13 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
     bpy.app.translations.register(__name__, TRANSLATIONS)
+    bpy.app.handlers.load_post.append(upgrade_on_load)
+    # The file already open when the add-on is enabled or updated.
+    bpy.app.timers.register(upgrade_on_load, first_interval=0.0)
 
 
 def unregister():
+    bpy.app.handlers.load_post.remove(upgrade_on_load)
     bpy.app.translations.unregister(__name__)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)

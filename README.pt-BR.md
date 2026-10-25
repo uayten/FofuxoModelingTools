@@ -41,11 +41,13 @@ subpainel e pode ser mudada para outro ângulo. Desmarcar apaga o empty.
 
 Os modificadores novos ficam no submenu *Add Modifier > Fofuxo*.
 
-O **Merge Collection** é um modificador Geometry Nodes: escolha a collection no painel e a malha do objeto passa a
-conter cópias de todos os objetos dela (inclusive sub-collections, curvas e
-textos), já com os modificadores e materiais deles, na mesma posição em que
-estão na cena. Para exportar, use uma malha vazia como suporte e esconda ou
-exclua a collection de origem.
+O **Merge Collection** é um modificador Geometry Nodes: escolha a collection no
+painel e a malha do objeto passa a conter cópias de todos os objetos dela
+(inclusive sub-collections, curvas e textos), já com os modificadores e
+materiais deles. A collection entra como está em volta da origem do mundo,
+sem rotação, e acompanha o objeto: mover ou girar o suporte move a malha
+juntada. Para exportar, use uma malha vazia como suporte e esconda ou exclua a
+collection de origem.
 
 - O suporte precisa ser um objeto mesh: empties não aceitam modificadores.
 - O suporte não pode estar dentro da collection que ele junta. Isso cria um
