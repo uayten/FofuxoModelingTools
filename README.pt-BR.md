@@ -9,7 +9,9 @@ Add-on para o Blender com ferramentas que agilizam a modelagem e a exportação:
 - o modificador **Merge Collection**, que junta todos os objetos de uma
   collection numa malha só, pronta para exportar;
 - o modificador **Spherical Bend**, que curva uma malha plana numa abóbada,
-  com pilares e decoração opcionais.
+  com pilares e decoração opcionais;
+- o modificador **Arabesque**, que transforma um esqueleto de arestas em
+  caules de arabesco em relevo.
 
 - [Instalação](#instalação)
 - [Uso](#uso)
@@ -54,7 +56,28 @@ altura da parte curva, como um scale Z nela: 1 deixa a abóbada redonda, abaixo
 de 1 achata o topo. O topo fica onde está e a parte reta acompanha o fim do
 arco; com *Use Floor* ligado, ela continua indo até o piso.
 
-Os dois modificadores Geometry Nodes ficam salvos no `.blend`, então quem abre
+O **Arabesque** lê só as arestas da malha: desenhe o esqueleto com vértices e
+arestas num plano XY do objeto. Cada vértice do esqueleto vira um anel de uma
+malha low-poly em relevo, só de quads e aberta (sem tampas nem face de trás).
+*Direction* escolhe o lado do plano de onde o relevo sai; *Crest* fecha as
+laterais (1 forma uma crista; acima de 1, uma crista mais alta). Largura e
+espessura são em unidades do mundo, mesmo com o objeto escalado.
+
+Os inputs *Main Stem* e *Width Group* leem vertex groups: no modificador,
+clique no ícone de atributo ao lado do input e escreva o nome do grupo.
+
+- *Main Stem*: os vértices do caule principal. As arestas entre eles formam uma
+  faixa contínua, que atravessa as junções sem cortes; as outras arestas viram
+  galhos, soldados ao anel do caule no vértice de onde saem. Sem grupo, a malha
+  é cortada em cada junção.
+- *Width Group*: pesos de 0 a 1. Peso 0 usa *Width*, peso 1 usa *Group Width*
+  e os valores intermediários misturam os dois.
+
+As arestas vivas ao longo dos galhos, como a crista, recebem crease. Para
+arredondar, ponha um Subdivision Surface depois do modificador. O painel
+*Width Variation*, desligado por padrão, afina o caule até as pontas soltas.
+
+Os modificadores Geometry Nodes ficam salvos no `.blend`, então quem abre
 o arquivo sem o add-on vê o mesmo resultado.
 
 ## Licença

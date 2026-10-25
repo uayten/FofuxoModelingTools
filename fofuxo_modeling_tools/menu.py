@@ -4,6 +4,7 @@
 
 import bpy
 
+from .arabesque import FOFUXO_OT_arabesque_add
 from .merge_collection import FOFUXO_OT_merge_collection_add
 from .spherical_bend import FOFUXO_OT_spherical_bend_add
 
@@ -16,6 +17,7 @@ class FOFUXO_MT_modifier_add(bpy.types.Menu):
         layout = self.layout
         layout.operator(FOFUXO_OT_merge_collection_add.bl_idname, icon='OUTLINER_COLLECTION')
         layout.operator(FOFUXO_OT_spherical_bend_add.bl_idname, icon='SPHERECURVE')
+        layout.operator(FOFUXO_OT_arabesque_add.bl_idname, icon='CURVE_BEZCURVE')
 
 
 def draw_modifier_menu(self, context):

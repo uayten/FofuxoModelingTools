@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from . import menu, merge_collection, mirror_angle, spherical_bend
+from . import arabesque, menu, merge_collection, mirror_angle, spherical_bend
 
 # Registration order: operators before the menu that references them.
-modules = (mirror_angle, merge_collection, spherical_bend, menu)
+modules = (mirror_angle, merge_collection, spherical_bend, arabesque, menu)
 
 
 def register():
