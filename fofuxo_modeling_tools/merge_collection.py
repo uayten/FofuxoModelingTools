@@ -77,20 +77,14 @@ class FOFUXO_OT_merge_collection_add(bpy.types.Operator):
         return {'FINISHED'}
 
 
-def draw_modifier_menu(self, context):
-    self.layout.operator(FOFUXO_OT_merge_collection_add.bl_idname, icon='OUTLINER_COLLECTION')
-
-
 classes = (FOFUXO_OT_merge_collection_add,)
 
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.OBJECT_MT_modifier_add_generate.append(draw_modifier_menu)
 
 
 def unregister():
-    bpy.types.OBJECT_MT_modifier_add_generate.remove(draw_modifier_menu)
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
